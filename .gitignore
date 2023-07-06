@@ -1,0 +1,6 @@
+check_point/
+data/
+image/
+input/
+**/__pycache__/
+**/npy/
