@@ -8,25 +8,27 @@ import glob
 
 from sklearn.model_selection import train_test_split
 
+import config
+
 #data Augumentation
 train_transforms = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.RandomResizedCrop(224),
+        transforms.Resize(config.image_size),
+        transforms.RandomResizedCrop(config.image_size),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
     ])
 
 val_transforms = transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.RandomResizedCrop(224),
+        transforms.Resize(config.image_size),
+        transforms.RandomResizedCrop(config.image_size),
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
     ])
 
 
 test_transforms = transforms.Compose([   
-    transforms.Resize((224, 224)),
-     transforms.RandomResizedCrop(224),
+    transforms.Resize(config.image_size),
+    transforms.RandomResizedCrop(config.image_size),
     transforms.RandomHorizontalFlip(),
     transforms.ToTensor()
     ])
