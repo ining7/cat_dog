@@ -3,3 +3,4 @@ image/
 input/
 **/__pycache__/
 **/npy/
+experiment.xlsx

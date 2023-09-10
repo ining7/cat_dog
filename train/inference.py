@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 import argparse
 import os
+import onnxruntime
+import numpy as np
+import shutil
 
 from PIL import Image
 
@@ -65,6 +68,26 @@ class Cnn(nn.Module):
         out = self.fc2(out)
         return out
 
+def check_onnx_model_accuracy(model_name, input_name, input_data, output_data, check_path, onnx_path):
+    print(f"checking: {model_name}")
+    if not os.path.exists(check_path):
+        os.makedirs(check_path)
+    input_check_path = os.path.join(check_path, f'{model_name}_input.pt')
+    output_check_path = os.path.join(check_path, f'{model_name}_output.pt')
+    onnx_path = os.path.join(onnx_path, f'{model_name}.onnx')
+
+    torch.save(input_data, input_check_path) 
+    torch.save(output_data, output_check_path) 
+
+    sess = onnxruntime.InferenceSession(onnx_path, providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+    input_onnx = input_data.cpu().numpy()
+    output_onnx = sess.run(None, {input_name: input_onnx})[0]
+
+    diff = np.abs(output_data.cpu().numpy() - output_onnx)
+    print(f' == Mean difference: {np.mean(diff)}')
+    print(f' == Max difference: {np.max(diff)}')
+    print(' -------------------------------- ')
+
 def convert_to_onnx(model, model_name, input_shapes, output_path):
     print(f"Converting model to ONNX format: {model_name}")
     dummy_inputs = torch.randn((1, *input_shapes)).to(device)
@@ -88,7 +111,7 @@ def load_model(model_path):
 
 def infer_single_image(model, image_path):
     transform = init_data.val_transforms
-    
+
     img = Image.open(image_path)
     img_transformed = transform(img)
     img_transformed = img_transformed.unsqueeze(0).to(device) 
@@ -96,22 +119,41 @@ def infer_single_image(model, image_path):
     with torch.no_grad():
         outputs = model(img_transformed)
         _, predicted = torch.max(outputs.data, 1)
-    return predicted.item()
+
+    return img_transformed, outputs, predicted.item()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PyTorch Inference")
     parser.add_argument("--model_path", type=str, required=True, help="Path to the trained model")
     parser.add_argument("--image_path", type=str, required=True, help="Path to the image for inference")
-    parser.add_argument("--onnx_path", type=str, nargs='?', help="Path to save the converted ONNX model")
+    parser.add_argument("--convert_path", type=str, nargs='?', help="Path to save the converted ONNX model")
+    parser.add_argument("--onnx_path", type=str, help="Path to ONNX model for accuracy check")
+    parser.add_argument("--check_output_path", type=str, default="./check_output", help="Path to save the check files")
     
     args = parser.parse_args()
 
     model = load_model(args.model_path)
 
-    if args.onnx_path is not None:
-        convert_to_onnx(model, "cat_dog", [config.channel_count, config.image_size[0], config.image_size[1]], args.onnx_path)
+    if args.convert_path is not None:
+        convert_to_onnx(model, "cat_dog", [config.channel_count, config.image_size[0], config.image_size[1]], args.convert_path)
 
-    prediction = infer_single_image(model, args.image_path)
+    img_transformed, output_tensor, prediction = infer_single_image(model, args.image_path)
+
+    if args.onnx_path is not None:
+        if not os.path.exists(args.check_output_path):
+            os.makedirs(args.check_output_path)
+
+        check_onnx_model_accuracy(
+            model_name="cat_dog", 
+            input_name="input",
+            input_data=img_transformed,
+            output_data=output_tensor,
+            check_path=args.check_output_path,
+            onnx_path=args.onnx_path
+        )
+
+        shutil.rmtree(args.check_output_path)
+
     
     if prediction == 1:
         print("Predicted: dog")

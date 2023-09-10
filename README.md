@@ -29,7 +29,11 @@ python training.py
 ### 推理
 
 ```shell
+# inference
 python inference.py --model_path ../check_point/cat_dog.pth --image_path ../data/test/cat.2.jpg
+# convert
+python inference.py --model_path ../check_point/cat_dog.pth --image_path ../data/test/cat.2.jpg --convrt_path ../onnx_model
+# check_acc
 python inference.py --model_path ../check_point/cat_dog.pth --image_path ../data/test/cat.2.jpg --onnx_path ../onnx_model
 ```
 
