@@ -25,3 +25,11 @@ python training.py
 
 - 模型结果保存在`./check_point`
 - 训练过程中`loss`与`acc`图保存于`./image`下对应文件夹中
+
+### 推理
+
+```shell
+python inference.py --model_path ../check_point/cat_dog.pth --image_path ../data/test/cat.2.jpg
+python inference.py --model_path ../check_point/cat_dog.pth --image_path ../data/test/cat.2.jpg --onnx_path ../onnx_model
+```
+
