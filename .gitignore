@@ -1,6 +1,8 @@
 data/
 image/
 input/
+**/build/
+.vscode/
 **/__pycache__/
 **/npy/
 experiment.xlsx
