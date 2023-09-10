@@ -167,7 +167,6 @@ def main():
                 val_output = model(data)
                 val_loss = criterion(val_output,label)
                 
-                
                 acc = ((val_output.argmax(dim=1) == label).float().mean())
                 epoch_val_accuracy += acc/ len(val_loader)
                 epoch_val_loss += val_loss/ len(val_loader)

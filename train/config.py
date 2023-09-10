@@ -1,7 +1,8 @@
 import torch
 import os
 
-image_size = (150, 150)
+image_size = (50, 50)
+channel_count = 3
 
 lr = 0.01  # learning_rate
 batch_size = 100  # we will use mini-batch method
