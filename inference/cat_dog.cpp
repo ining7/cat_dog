@@ -58,22 +58,18 @@ void write_output_to_bin(const std::string& file_path, Iter begin, Iter end) {
 
 int run_inference(
     OrtSession* session,
-    const std::string& input_file_path,
+    std::vector<float>& input_data, 
     const std::string& output_file_path,
     const std::vector<int64_t>& input_shape,
     const std::vector<int64_t>& output_shape,
     const char* input_name,
     const char* output_name)
 {
-    std::vector<float> input_data;
-
-    read_bin_to_float_vector(input_file_path, input_data);
-
+    // Calculate and Check shape's size
     size_t input_data_size = 1;
     for (const auto& dim : input_shape) {
         input_data_size *= dim;
     }
-
     if (input_data.size() != input_data_size) {
         std::cerr << "Error: The input file does not match the expected input size.";
         return -1;
@@ -87,21 +83,19 @@ int run_inference(
             &memory_info)
     );
 
-    const size_t input_shape_len = input_shape.size();;
-    const size_t model_input_len = input_data.size() * sizeof(float);
-
+    // Create Input Tensor
     OrtValue* input_tensor = NULL;
     ORT_ABORT_ON_ERROR(
         g_ort->CreateTensorWithDataAsOrtValue(
             memory_info, 
             input_data.data(), 
-            model_input_len, 
+            input_data.size() * sizeof(float), 
             input_shape.data(), 
-            input_shape_len, 
+            input_shape.size(), 
             ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, 
             &input_tensor)
     );
-
+    // Check Input Tensor
     assert(input_tensor != NULL);
     int is_tensor;
     ORT_ABORT_ON_ERROR(g_ort->IsTensor(input_tensor, &is_tensor));
@@ -112,27 +106,26 @@ int run_inference(
     const char* input_names[] = {input_name};
     const char* output_names[] = {output_name};
 
+    // Create Output Tensor
     size_t output_data_size = 1;
     for (const auto& dim : output_shape) {
         output_data_size *= dim;
     }
-
     std::vector<float> results_(output_data_size);
-    const size_t output_shape_len = output_shape.size();;
-    const size_t model_output_len = results_.size() * sizeof(float);
 
     OrtValue* output_tensor = NULL;
     ORT_ABORT_ON_ERROR(
        g_ort->CreateTensorWithDataAsOrtValue(
             memory_info, 
             results_.data(), 
-            model_output_len, 
+            results_.size() * sizeof(float), 
             output_shape.data(), 
-            output_shape_len, 
+            output_shape.size(), 
             ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT, 
             &output_tensor)
     );
     
+    // RunInferencer
     ORT_ABORT_ON_ERROR(
         g_ort->Run(
             session, NULL, input_names, 
@@ -142,8 +135,12 @@ int run_inference(
 
     float* output_data;
     ORT_ABORT_ON_ERROR(g_ort->GetTensorMutableData(output_tensor, (void**)&output_data));
-
     write_output_to_bin(output_file_path, output_data, output_data + output_data_size);
+
+    // std::array<float, 2> output_data;
+    // float* data_ptr = output_data.data();
+    // ORT_ABORT_ON_ERROR(g_ort->GetTensorMutableData(output_tensor, (void**)&data_ptr));
+    // write_output_to_bin(output_file_path, output_data.begin(), output_data.end());
 
     g_ort->ReleaseValue(output_tensor);
     g_ort->ReleaseValue(input_tensor);
@@ -175,8 +172,11 @@ int main(int argc, char* argv[]) {
     ORT_ABORT_ON_ERROR(g_ort->CreateSession(env, model_path, session_options, &session));
     verify_input_output_count(session);
 
+    std::vector<float> input_data;
+    read_bin_to_float_vector(input_file, input_data);
+
     int ret = run_inference(
-        session, input_file, output_file,
+        session, input_data, output_file,
         {1, 3, 50, 50},
         {1, 2},
         "input",
