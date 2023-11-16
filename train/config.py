@@ -1,12 +1,12 @@
 import torch
 import os
 
-image_size = (50, 50)
+image_size = (250, 250)
 channel_count = 3
 
-lr = 0.01  # learning_rate
-batch_size = 100  # we will use mini-batch method
-epochs = 10  # How much to train a model
+lr = 0.0001  # learning_rate
+batch_size = 32  # we will use mini-batch method
+epochs = 500  # How much to train a model
 
 params_str = "{}_{}_{}".format(lr, batch_size, epochs)
 

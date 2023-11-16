@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 import config
 import init_data
 
+from tqdm import tqdm
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 torch.manual_seed(1234)
@@ -38,6 +40,7 @@ class dataset(torch.utils.data.Dataset):
         
         # label = img_path.split('\\')[-1].split('.')[0]
         label = os.path.basename(img_path).split('.')[0]
+
         if label == 'dog':
             label=1
         else :
@@ -87,6 +90,119 @@ class Cnn(nn.Module):
         out = self.fc2(out)
         return out
 
+class Dnn(nn.Module):
+    def __init__(self):
+        super(Dnn,self).__init__()
+        
+        self.layer1 = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=5, padding="same", stride=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=5, padding="same", stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(32),
+            nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
+        )
+        
+        self.layer2 = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=5, padding="same", stride=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=5, padding="same", stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(64),
+            nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
+        )
+        
+        self.layer3 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, padding="same", stride=1),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=3, padding="same", stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
+        )
+
+        self.layer4 = nn.Sequential(
+            nn.Conv2d(128, 128, kernel_size=3, padding="same", stride=1),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=3, padding="same", stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
+        )
+
+        self.layer5 = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=5, padding="same", stride=1),
+            nn.ReLU(),
+            nn.Conv2d(32, 32, kernel_size=5, padding="same", stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(32),
+            nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
+        )
+        
+        self.layer6 = nn.Sequential(
+            nn.Conv2d(32, 64, kernel_size=5, padding="same", stride=1),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=5, padding="same", stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(64),
+            nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
+        )
+        
+        self.layer7 = nn.Sequential(
+            nn.Conv2d(64, 128, kernel_size=3, padding="same", stride=1),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=3, padding="same", stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
+        )
+
+        self.layer8 = nn.Sequential(
+            nn.Conv2d(128, 128, kernel_size=3, padding="same", stride=1),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=3, padding="same", stride=1),
+            nn.ReLU(),
+            nn.BatchNorm2d(128),
+            nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2)),
+        )
+        
+        self.avg_pool = nn.AvgPool2d(kernel_size=(2, 2), stride=(2, 2))
+
+        self.fc1 = nn.Linear(6272, 1024)
+        self.fc2 = nn.Linear(1024, 1)
+        self.fc3 = nn.Linear(16384, 1)
+        self.relu = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+        
+    def forward(self,x):
+        out = self.layer1(x)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = self.layer4(out)
+        out = self.avg_pool(out)
+
+        # bilinear model:
+        out2 = self.layer5(x)
+        out2 = self.layer6(out2)
+        out2 = self.layer7(out2)
+        out2 = self.layer8(out2)
+        out2 = self.avg_pool(out2)
+        
+        out = out.view(out.size(0), 128, 49)
+        out2 = out2.view(out2.size(0), 128, 49)
+        out_T = torch.transpose(out2, 1, 2)
+        out = torch.bmm(out, out_T) / (49)
+        out = out.view(out.size(0), 128 * 128)
+        # The signed square root
+        out = torch.sign(out) * torch.sqrt(torch.abs(out) + 1e-12)
+        # L2 regularization
+        out = torch.nn.functional.normalize(out)
+
+        # out = out.view(out.size(0), -1)
+        # out = self.relu(self.fc1(out))
+        out = self.sigmoid(self.fc3(out))
+        return out
+
 import matplotlib.pyplot as plt
 def plot_training(loss_img_save, acc_img_save, epochs, train_losses, val_losses, train_accuracies, val_accuracies):
     # Plot training and validation loss
@@ -109,25 +225,30 @@ def plot_training(loss_img_save, acc_img_save, epochs, train_losses, val_losses,
     plt.legend(['Train', 'Val'], loc='upper right')
     plt.savefig(acc_img_save)
 
+def adjust_learning_rate(optimizer, epoch):
+    lr = config.lr * (0.1 ** (epoch // 10))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+    print('learning rate update to %f', lr)
+
 def main():
     # load data from npy
     train_list = np.load('./npy/train_list.npy')
     val_list = np.load('./npy/val_list.npy')
-    test_list = np.load('./npy/test_list.npy')
 
     train_data = dataset(train_list, transform=init_data.train_transforms)
     val_data = dataset(val_list, transform=init_data.val_transforms)
-    test_data = dataset(test_list, transform=init_data.test_transforms)
+
+    print(len(val_list))
 
     train_loader = torch.utils.data.DataLoader(dataset = train_data, batch_size=config.batch_size, shuffle=True )
-    val_loader = torch.utils.data.DataLoader(dataset = val_data, batch_size=config.batch_size, shuffle=True)
-    test_loader = torch.utils.data.DataLoader(dataset = test_data, batch_size=config.batch_size, shuffle=True)
+    val_loader = torch.utils.data.DataLoader(dataset = val_data, batch_size=len(val_list), shuffle=False)
 
-    model = Cnn().to(device)
+    model = Dnn().to(device)
     model.train()
 
     optimizer = optim.Adam(params = model.parameters(),lr=config.lr)
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.BCEWithLogitsLoss()
 
     train_losses = []
     train_accuracies = []
@@ -143,13 +264,15 @@ def main():
             label = label.to(device)
             
             output = model(data)
-            loss = criterion(output, label)
+            output = output.squeeze(dim=-1)
+            loss = criterion(output, label.to(torch.float32))
             
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
-            acc = ((output.argmax(dim=1) == label).float().mean())
+
+            # acc = ((output.argmax(dim=1) == label).float().mean())
+            acc = ((output.round() == label).float().mean())
             epoch_accuracy += acc/len(train_loader)
             epoch_loss += loss/len(train_loader)
             
@@ -165,9 +288,11 @@ def main():
                 label = label.to(device)
                 
                 val_output = model(data)
-                val_loss = criterion(val_output,label)
+                val_output = val_output.squeeze(dim=-1)
+                val_loss = criterion(val_output, label.to(torch.float32))
                 
-                acc = ((val_output.argmax(dim=1) == label).float().mean())
+                # acc = ((val_output.argmax(dim=1) == label).float().mean())
+                acc = ((val_output.round() == label).float().mean())
                 epoch_val_accuracy += acc/ len(val_loader)
                 epoch_val_loss += val_loss/ len(val_loader)
                 
@@ -184,25 +309,6 @@ def main():
     total_loss = 0
 
     model.eval()
-
-    with torch.no_grad():
-        for data, labels in test_loader:
-            data = data.to(device)
-            labels = labels.to(device)
-
-            preds = model(data)
-            _, predicted = torch.max(preds.data, 1)
-
-            total_samples += labels.size(0)
-            correct_predictions += (predicted == labels).sum().item()
-
-            loss = criterion(preds, labels)
-            total_loss += loss.item()
-
-    accuracy = correct_predictions / total_samples
-    average_loss = total_loss / len(test_loader)
-    print(f' === Test Accuracy: {accuracy:.4f}')
-    print(f' === Test Loss: {average_loss:.4f}')
 
 if __name__ == "__main__":
     main()
