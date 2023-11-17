@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import argparse
 import os
-import onnxruntime
+# import onnxruntime
 import numpy as np
 import shutil
 
@@ -10,6 +10,8 @@ from PIL import Image
 
 import config
 import init_data
+
+from training import Dnn
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
@@ -103,7 +105,7 @@ def convert_to_onnx(model, model_name, input_shapes, output_path):
         output_names=output_names, opset_version=11)
 
 def load_model(model_path):
-    model = Cnn()
+    model = Dnn()
     model.load_state_dict(torch.load(model_path, map_location=device))
     model.to(device)
     model.eval() 
@@ -154,7 +156,7 @@ if __name__ == "__main__":
 
         shutil.rmtree(args.check_output_path)
 
-    
+    print(output_tensor)
     if prediction == 1:
         print("Predicted: dog")
     else:

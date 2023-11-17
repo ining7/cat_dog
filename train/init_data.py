@@ -14,8 +14,8 @@ import config
 train_transforms = transforms.Compose([
         transforms.Resize(config.image_size),
         # transforms.RandomResizedCrop(config.image_size),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(15),
+        # transforms.RandomHorizontalFlip(),
+        # transforms.RandomRotation(15),
         # transforms.ColorJitter(brightness=1, contrast=1, hue=0.5, saturation=0.5),
         transforms.ToTensor(),
     ])
@@ -50,25 +50,27 @@ def rename_sort_files(src_dir, dst_dir):
 
 def main():
     base_dir = '../../archive'
-    train_dir = '../data/train'
-    val_dir = '../data/val'
+    train_dir = '../data/25000images/train'
+    val_dir = '../data/25000images/val'
     test_dir = '../data/test'
     os.makedirs(train_dir, exist_ok=True)
     os.makedirs(test_dir, exist_ok=True)
-
+ 
     train_temp_dir = '../temp_data/train_temp_dir'
     test_temp_dir = '../temp_data/test_temp_dir'
     os.makedirs(train_temp_dir, exist_ok=True)
     os.makedirs(test_temp_dir, exist_ok=True)
 
-    train_list = glob.glob(os.path.join(train_dir,'*/*.jpg'))
-    val_list = glob.glob(os.path.join(val_dir,'*/*.jpg'))
-    test_list = glob.glob(os.path.join(test_dir, '*.jpg'))
+    train_list = glob.glob(os.path.join(train_dir,'*.jpg'))
+    val_list = glob.glob(os.path.join(val_dir,'*.jpg'))
+
+    print(len(train_list), len(val_list))
 
     # save data to npy
     os.makedirs('./npy', exist_ok=True)
     np.save('./npy/train_list.npy', train_list)
     np.save('./npy/val_list.npy', val_list)
+    np.save('./npy/test_list.npy', val_list)
 
 if __name__ == "__main__":
     main()
